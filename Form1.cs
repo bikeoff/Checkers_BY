@@ -50,7 +50,7 @@ namespace Checkers_BY
         }
     }
 
-    public class ChessGame // to do /
+    public class ChessGame
     {
         private bool gameIsOn;
         private Player whitePlayer;
@@ -267,7 +267,7 @@ namespace Checkers_BY
                     field.Image = null;
             }
         }
-        private void ToProcessClickOnFieldPictureBox(object sender, EventArgs e) //to do /
+        private void ToProcessClickOnFieldPictureBox(object sender, EventArgs e) //
         {
             var fieldPictureBox = sender as ChessFieldPictureBox;
             var indexes = fieldPictureBox.Indexes;
@@ -290,11 +290,11 @@ namespace Checkers_BY
                     }
                     else
                     {
-                        activePlayer.TryToMoveFigureInHandToField(chessboard, indexes);
                         switch (activePlayer.WhatDoesPlayerDo)
                         {
                             case Constants.PlayerDoesCourse:
                             {
+                                activePlayer.TryToMoveFigureInHandToField(chessboard, indexes);
                                 if (activePlayer == whitePlayer)
                                     activePlayer = blackPlayer;
                                 else
@@ -323,17 +323,52 @@ namespace Checkers_BY
                                 break;
                             }
                             case Constants.PlayerDoesCapture:
-                            {
-                                //снять с поля шашку, которую побили, если игрок бьёт
-                                /*activePlayer.UpdateLists();
-                                activePlayer.TryToTakeFigureInHand(chessboard, indexes);
-                                switch (activePlayer.WhatDoesPlayerDo)
+                            {   
+                                foreach (var taking in activePlayer.FigureInHand.TakingsList)
                                 {
-                                    case Constants.PlayerDoesCourse: 
-                                        possibleToSelectIndexes = activePlayer.FigureInHand.CoursesDestinationIndexes; break;
-                                    case Constants.PlayerDoesCapture: 
-                                        possibleToSelectIndexes = activePlayer.FigureInHand.CapturesDestinationIndexes; break;
-                                }*/
+                                    var tempIndex = taking.WhereFigureMoves;
+                                    if (tempIndex.Row == indexes.Row && tempIndex.Column == indexes.Column)
+                                    {
+                                        tempIndex = taking.FromWhereFigureIsRemoved;
+                                        chessboard[tempIndex.Row, tempIndex.Column].WhoIsInField().TryRemoveFromField();
+                                        break;
+                                    }
+                                }
+                                activePlayer.TryToMoveFigureInHandToField(chessboard, indexes);
+                                activePlayer.UpdateLists();
+                                if (chessboard[indexes.Row, indexes.Column].WhoIsInField().TakingsList.Count != 0)
+                                {
+                                    activePlayer.TryToTakeFigureInHand(chessboard, indexes);
+                                    possibleToSelectIndexes = activePlayer.FigureInHand.CapturesDestinationIndexes;
+                                }
+                                else
+                                {
+                                    if (activePlayer == whitePlayer)
+                                        activePlayer = blackPlayer;
+                                    else
+                                        activePlayer = whitePlayer;
+                                    chessboard.ToTurnBoardOn180();
+                                    activePlayer.UpdateLists();
+                                    if (activePlayer.CapturesSourceIndexes.Count != 0)
+                                        possibleToSelectIndexes = activePlayer.CapturesSourceIndexes;
+                                    else if (activePlayer.CoursesSourceIndexes.Count != 0)
+                                        possibleToSelectIndexes = activePlayer.CoursesSourceIndexes;
+                                    else
+                                    {
+                                        possibleToSelectIndexes = new List<IndexesOnBoard>();
+                                        foreach (var field in fieldPictureBoxes)
+                                        {
+                                            field.Enabled = false;
+                                        }
+                                        ToUpdatePictures();
+                                        gameIsOn = false;
+                                        switch (activePlayer.PlayerColor)
+                                        {
+                                            case Constants.WhiteColor: MessageBox.Show("Игра окончена. Белый игрок проиграл"); break;
+                                            case Constants.BlackColor: MessageBox.Show("Игра окончена. Черный игрок проиграл"); break;
+                                        }
+                                    }
+                                }
                                 break;
                             }
                         }
@@ -359,10 +394,12 @@ namespace Checkers_BY
         public Player()
         {
             colorIsSet = false;
+            Figures = new List<ChessFigure>();
         }
         public Player(byte newPlayerColor)
         {
             PlayerColor = newPlayerColor;
+            Figures = new List<ChessFigure>();
         }
 
         public byte PlayerColor
@@ -419,10 +456,13 @@ namespace Checkers_BY
 
         public void UpdateLists()
         {
-            foreach (var figure in Figures)
+            for (var i = 0; i < Figures.Count; i++)
             {
-                if (figure.WhereIsFigure() == null)
-                    Figures.Remove(figure);
+                if (Figures[i].WhereIsFigure() == null)
+                {
+                    Figures.RemoveAt(i);
+                    i--;
+                }
             }
             fromWhereItIsPossibleToGo = new List<IndexesOnBoard>();
             fromWhereItIsPossibleToBeat = new List<IndexesOnBoard>();
@@ -539,7 +579,7 @@ namespace Checkers_BY
             {
                 transformedIndexes = staticIndexes;
             }
-            return staticIndexes;
+            return transformedIndexes;
         }
     }
 
@@ -594,18 +634,22 @@ namespace Checkers_BY
             }
             return figureIsPut;
         }
-        public ChessFigure TryRemoveFigure()
+        public bool TryRemoveFigure() //
         {
-            ChessFigure removedFigure = null;
+            bool removed = false;
             if (figure != null)
             {
-                if (this == figure.WhereIsFigure())
+                if (this.Equals(figure.WhereIsFigure()))
                 {
-                    removedFigure = figure;
+                    removed = true;
                     figure = null;
                 }
             }
-            return removedFigure;
+            else
+            {
+                MessageBox.Show("error figure = null in field");
+            }
+            return removed;
         }
     }
 
@@ -617,7 +661,7 @@ namespace Checkers_BY
         private Chessboard chessboard;
         private IndexesOnBoard staticIndexes;
         private List<IndexesOnBoard> whereItIsPossibleToGo;
-        private List<IndexesOnBoard> whereItIsPossibleToBeat;
+        private List<Taking> whereItIsPossibleToBeat;
 
         public ChessFigure()
         {
@@ -654,6 +698,18 @@ namespace Checkers_BY
         {
             get
             {
+                var result = new List<IndexesOnBoard>();
+                foreach (var take in whereItIsPossibleToBeat)
+                {
+                    result.Add(take.WhereFigureMoves);
+                }
+                return result;
+            }
+        }
+        public List<Taking> TakingsList
+        {
+            get
+            {
                 return whereItIsPossibleToBeat;
             }
         }
@@ -684,17 +740,21 @@ namespace Checkers_BY
             }
             return figureIsPut;
         }
-        public bool TryRemoveFromField()
+        public bool TryRemoveFromField() //
         {
             bool figureIsRemoved = false;
-            if (WhereIsFigure() != null)
+            var field = WhereIsFigure();
+            if (field != null)
             {
-                if (this == WhereIsFigure().WhoIsInField())
-                {
-                    WhereIsFigure().TryRemoveFigure();
+                if (field.TryRemoveFigure())
+                {                  
                     chessboard = null;
                     staticIndexes.Row = staticIndexes.Column = Constants.UndefinedIndex;
                     figureIsRemoved = true;
+                }
+                else
+                {
+                    MessageBox.Show("error TryRemoveFromField");
                 }
             }
             return figureIsRemoved;
@@ -730,7 +790,7 @@ namespace Checkers_BY
             whereItIsPossibleToBeat = ToMakeListOfPossibleCaptures();
         }
         public abstract List<IndexesOnBoard> ToMakeListOfAvailableCourses();
-        public abstract List<IndexesOnBoard> ToMakeListOfPossibleCaptures();
+        public abstract List<Taking> ToMakeListOfPossibleCaptures();
     }
 
     public class ChessFieldPictureBox : PictureBox
@@ -738,7 +798,7 @@ namespace Checkers_BY
         public IndexesOnBoard Indexes;
     }
 
-    public class Checker : ChessFigure // to do later/
+    public class Checker : ChessFigure
     {
         public Checker(byte newFigureColor)
         {
@@ -777,12 +837,118 @@ namespace Checkers_BY
             }          
             return whereItIsPossibleToGo;
         }
-        public override List<IndexesOnBoard> ToMakeListOfPossibleCaptures() // to do /
+        public override List<Taking> ToMakeListOfPossibleCaptures()
         {
-            var whereItIsPossibleToBeat = new List<IndexesOnBoard>();
-
+            var whereItIsPossibleToBeat = new List<Taking>();
+            Taking possibleTaking;
+            ChessFigure neighbour;
+            var figureIndexes = this.GetIndexesForBoardArray();
+            var upperRow = figureIndexes.Row + 1;
+            var lowerRow = figureIndexes.Row - 1;
+            var leftColumn = figureIndexes.Column - 1;
+            var rightColumn = figureIndexes.Column + 1;
+            if (upperRow < Constants.ChessboardDimension)
+            {
+                if (leftColumn >= 0)
+                {
+                    neighbour = this.Board[upperRow, leftColumn].WhoIsInField();
+                    if (neighbour != null && neighbour.FigureColor != this.FigureColor)
+                    {
+                        possibleTaking.FromWhereFigureIsRemoved.Row = upperRow;
+                        possibleTaking.FromWhereFigureIsRemoved.Column = leftColumn;
+                        upperRow++;
+                        leftColumn--;
+                        if (upperRow < Constants.ChessboardDimension && leftColumn >= 0)
+                        {
+                            if (this.Board[upperRow, leftColumn].WhoIsInField() == null)
+                            {
+                                possibleTaking.WhereFigureMoves.Row = upperRow;
+                                possibleTaking.WhereFigureMoves.Column = leftColumn;
+                                whereItIsPossibleToBeat.Add(possibleTaking);
+                            }
+                        }
+                        upperRow--;
+                        leftColumn++;
+                    }
+                }
+                if (rightColumn < Constants.ChessboardDimension)
+                {
+                    neighbour = this.Board[upperRow, rightColumn].WhoIsInField();
+                    if (neighbour != null && neighbour.FigureColor != this.FigureColor)
+                    {
+                        possibleTaking.FromWhereFigureIsRemoved.Row = upperRow;
+                        possibleTaking.FromWhereFigureIsRemoved.Column = rightColumn;
+                        upperRow++;
+                        rightColumn++;
+                        if (upperRow < Constants.ChessboardDimension && rightColumn < Constants.ChessboardDimension)
+                        {
+                            if (this.Board[upperRow, rightColumn].WhoIsInField() == null)
+                            {
+                                possibleTaking.WhereFigureMoves.Row = upperRow;
+                                possibleTaking.WhereFigureMoves.Column = rightColumn;
+                                whereItIsPossibleToBeat.Add(possibleTaking);
+                            }
+                        }
+                        upperRow--;
+                        rightColumn--;
+                    }
+                }
+            }
+            if (lowerRow >= 0)
+            {
+                if (leftColumn >= 0)
+                {
+                    neighbour = this.Board[lowerRow, leftColumn].WhoIsInField();
+                    if (neighbour != null && neighbour.FigureColor != this.FigureColor)
+                    {
+                        possibleTaking.FromWhereFigureIsRemoved.Row = lowerRow;
+                        possibleTaking.FromWhereFigureIsRemoved.Column = leftColumn;
+                        lowerRow--;
+                        leftColumn--;
+                        if (lowerRow >=0 && leftColumn >= 0)
+                        {
+                            if (this.Board[lowerRow, leftColumn].WhoIsInField() == null)
+                            {
+                                possibleTaking.WhereFigureMoves.Row = lowerRow;
+                                possibleTaking.WhereFigureMoves.Column = leftColumn;
+                                whereItIsPossibleToBeat.Add(possibleTaking);
+                            }
+                        }
+                        lowerRow++;
+                        leftColumn++;
+                    }
+                }
+                if (rightColumn < Constants.ChessboardDimension)
+                {
+                    neighbour = this.Board[lowerRow, rightColumn].WhoIsInField();
+                    if (neighbour != null && neighbour.FigureColor != this.FigureColor)
+                    {
+                        possibleTaking.FromWhereFigureIsRemoved.Row = lowerRow;
+                        possibleTaking.FromWhereFigureIsRemoved.Column = rightColumn;
+                        lowerRow--;
+                        rightColumn++;
+                        if (lowerRow >= 0 && rightColumn < Constants.ChessboardDimension)
+                        {
+                            if (this.Board[lowerRow, rightColumn].WhoIsInField() == null)
+                            {
+                                possibleTaking.WhereFigureMoves.Row = lowerRow;
+                                possibleTaking.WhereFigureMoves.Column = rightColumn;
+                                whereItIsPossibleToBeat.Add(possibleTaking);
+                            }
+                        }
+                        lowerRow++;
+                        rightColumn--;
+                    }
+                }
+            } 
             return whereItIsPossibleToBeat;
         }
+    }
+
+    public struct Taking
+    {
+        public IndexesOnBoard WhereFigureMoves;
+        public IndexesOnBoard FromWhereFigureIsRemoved;
     }
 
     public struct IndexesOnBoard
