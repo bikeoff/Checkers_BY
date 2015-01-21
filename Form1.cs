@@ -267,7 +267,7 @@ namespace Checkers_BY
                     field.Image = null;
             }
         }
-        private void ToProcessClickOnFieldPictureBox(object sender, EventArgs e) //
+        private void ToProcessClickOnFieldPictureBox(object sender, EventArgs e)
         {
             var fieldPictureBox = sender as ChessFieldPictureBox;
             var indexes = fieldPictureBox.Indexes;
@@ -295,6 +295,13 @@ namespace Checkers_BY
                             case Constants.PlayerDoesCourse:
                             {
                                 activePlayer.TryToMoveFigureInHandToField(chessboard, indexes);
+                                if (indexes.Row == Constants.ChessboardDimension - 1)
+                                {
+                                    chessboard[indexes.Row, indexes.Column].WhoIsInField().TryRemoveFromField();
+                                    var substitute = new Queen(activePlayer.PlayerColor);
+                                    activePlayer.Figures.Add(substitute);
+                                    substitute.TryPutInField(chessboard, indexes);
+                                }                                   
                                 if (activePlayer == whitePlayer)
                                     activePlayer = blackPlayer;
                                 else
@@ -335,6 +342,13 @@ namespace Checkers_BY
                                     }
                                 }
                                 activePlayer.TryToMoveFigureInHandToField(chessboard, indexes);
+                                if (indexes.Row == Constants.ChessboardDimension - 1)
+                                {
+                                    chessboard[indexes.Row, indexes.Column].WhoIsInField().TryRemoveFromField();
+                                    var substitute = new Queen(activePlayer.PlayerColor);
+                                    activePlayer.Figures.Add(substitute);
+                                    substitute.TryPutInField(chessboard, indexes);
+                                }                                   
                                 activePlayer.UpdateLists();
                                 if (chessboard[indexes.Row, indexes.Column].WhoIsInField().TakingsList.Count != 0)
                                 {
@@ -941,6 +955,121 @@ namespace Checkers_BY
                     }
                 }
             } 
+            return whereItIsPossibleToBeat;
+        }
+    }
+
+    public class Queen : ChessFigure
+    {
+        public Queen(byte newFigureColor)
+        {
+            FigureColor = newFigureColor;
+            switch (FigureColor)
+            {
+                case Constants.WhiteColor: FigureImage = Properties.Resources.queen_white; break;
+                case Constants.BlackColor: FigureImage = Properties.Resources.queen_black; break;
+            }
+        }
+
+        public override List<IndexesOnBoard> ToMakeListOfAvailableCourses()
+        {
+            var whereItIsPossibleToGo = new List<IndexesOnBoard>();
+            var figureIndexes = this.GetIndexesForBoardArray();
+            IndexesOnBoard checkedIndexes;
+            for (var verticalDirection = -1; verticalDirection <= 1; verticalDirection += 2)
+            {
+                for (var horizontalDirection = -1; horizontalDirection <= 1; horizontalDirection += 2)
+                {
+                    bool directionIsWorkOut = false;
+                    var k = 1;
+                    while (directionIsWorkOut == false)
+                    {
+                        checkedIndexes.Row = figureIndexes.Row + k * verticalDirection;
+                        checkedIndexes.Column = figureIndexes.Column + k * horizontalDirection;
+                        if (checkedIndexes.Column < 0 || checkedIndexes.Column >= Constants.ChessboardDimension
+                            || checkedIndexes.Row < 0 || checkedIndexes.Row >= Constants.ChessboardDimension)
+                        {
+                            directionIsWorkOut = true;
+                        }
+                        else
+                        {
+                            if (this.Board[checkedIndexes.Row, checkedIndexes.Column].WhoIsInField() == null)
+                            {
+                                whereItIsPossibleToGo.Add(checkedIndexes);
+                                k++;
+                            }
+                            else
+                            {
+                                directionIsWorkOut = true;
+                            }
+                        }
+                    }
+                }
+            }
+            return whereItIsPossibleToGo;
+        }
+        public override List<Taking> ToMakeListOfPossibleCaptures()
+        {
+            var whereItIsPossibleToBeat = new List<Taking>();
+            var figureIndexes = this.GetIndexesForBoardArray();
+            IndexesOnBoard checkedIndexes;
+            Taking taking;
+            for (var verticalDirection = -1; verticalDirection <= 1; verticalDirection += 2)
+            {
+                for (var horizontalDirection = -1; horizontalDirection <= 1; horizontalDirection += 2)
+                {
+                    bool directionIsWorkOut = false;
+                    bool opponentIsFound = false;
+                    taking.FromWhereFigureIsRemoved.Row = Constants.UndefinedIndex;
+                    taking.FromWhereFigureIsRemoved.Column = Constants.UndefinedIndex;                 
+                    var k = 1;
+                    while (directionIsWorkOut == false)
+                    {
+                        checkedIndexes.Row = figureIndexes.Row + k * verticalDirection;
+                        checkedIndexes.Column = figureIndexes.Column + k * horizontalDirection;
+                        if (checkedIndexes.Column < 0 || checkedIndexes.Column >= Constants.ChessboardDimension
+                            || checkedIndexes.Row < 0 || checkedIndexes.Row >= Constants.ChessboardDimension)
+                        {
+                            directionIsWorkOut = true;
+                        }
+                        else
+                        {
+                            var otherFigure = this.Board[checkedIndexes.Row, checkedIndexes.Column].WhoIsInField();
+                            if (otherFigure == null)
+                            {
+                                if (opponentIsFound)
+                                {
+                                    taking.WhereFigureMoves.Row = checkedIndexes.Row;
+                                    taking.WhereFigureMoves.Column = checkedIndexes.Column;
+                                    whereItIsPossibleToBeat.Add(taking);
+                                }
+                                k++;
+                            }
+                            else
+                            {
+                                if (otherFigure.FigureColor == this.FigureColor)
+                                {
+                                    directionIsWorkOut = true;
+                                }
+                                else
+                                {
+                                    if (opponentIsFound)
+                                    {
+                                        directionIsWorkOut = true;
+                                    }
+                                    else
+                                    {
+                                        opponentIsFound = true;
+                                        taking.FromWhereFigureIsRemoved.Row = checkedIndexes.Row;
+                                        taking.FromWhereFigureIsRemoved.Column = checkedIndexes.Column;
+                                        k++;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
             return whereItIsPossibleToBeat;
         }
     }
