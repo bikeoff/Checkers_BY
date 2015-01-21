@@ -223,13 +223,17 @@ namespace Checkers_BY
                 indexes.Row = i;
                 for (var j = 0; j < Constants.ChessboardDimension; j++)
                 {
+                    indexes.Column = j;
                     if ((i + j) % 2 == 0)
                     {
-                        indexes.Column = j;
                         player.Figures.Add(new Checker(player.PlayerColor));
-                        player.Figures[k].TryPutInField(chessboard, indexes);
-                        k++;
                     }
+                    else
+                    {
+                        player.Figures.Add(new Pawn(player.PlayerColor));
+                    }
+                    player.Figures[k].TryPutInField(chessboard, indexes);
+                    k++;
                 }
             }
         }
@@ -297,10 +301,30 @@ namespace Checkers_BY
                                 activePlayer.TryToMoveFigureInHandToField(chessboard, indexes);
                                 if (indexes.Row == Constants.ChessboardDimension - 1)
                                 {
-                                    chessboard[indexes.Row, indexes.Column].WhoIsInField().TryRemoveFromField();
-                                    var substitute = new Queen(activePlayer.PlayerColor);
-                                    activePlayer.Figures.Add(substitute);
-                                    substitute.TryPutInField(chessboard, indexes);
+                                    var figureAtHighestRow = chessboard[indexes.Row, indexes.Column].WhoIsInField();
+                                    ChessFigure substitute = null;
+                                    if (figureAtHighestRow is Checker)
+                                    {
+                                        substitute = new Queen(activePlayer.PlayerColor);
+                                    }
+                                    else if (figureAtHighestRow is Pawn)
+                                    {
+                                        var random = new Random();
+                                        var choice = random.Next(3);
+                                        switch (choice)
+                                        {
+                                            case 0: substitute = new Horse(activePlayer.PlayerColor); break;
+                                            case 1: substitute = new Bishop(activePlayer.PlayerColor); break;
+                                            case 2: substitute = new Castle(activePlayer.PlayerColor); break;
+                                        }
+                                        substitute = new Bishop(activePlayer.PlayerColor);
+                                    }
+                                    if (substitute != null)
+                                    {
+                                        figureAtHighestRow.TryRemoveFromField();
+                                        activePlayer.Figures.Add(substitute);
+                                        substitute.TryPutInField(chessboard, indexes);
+                                    }
                                 }                                   
                                 if (activePlayer == whitePlayer)
                                     activePlayer = blackPlayer;
@@ -344,10 +368,18 @@ namespace Checkers_BY
                                 activePlayer.TryToMoveFigureInHandToField(chessboard, indexes);
                                 if (indexes.Row == Constants.ChessboardDimension - 1)
                                 {
-                                    chessboard[indexes.Row, indexes.Column].WhoIsInField().TryRemoveFromField();
-                                    var substitute = new Queen(activePlayer.PlayerColor);
-                                    activePlayer.Figures.Add(substitute);
-                                    substitute.TryPutInField(chessboard, indexes);
+                                    var figureAtHighestRow = chessboard[indexes.Row, indexes.Column].WhoIsInField();
+                                    ChessFigure substitute = null;
+                                    if (figureAtHighestRow is Checker)
+                                    {
+                                        substitute = new Queen(activePlayer.PlayerColor);
+                                    }
+                                    if (substitute != null)
+                                    {
+                                        figureAtHighestRow.TryRemoveFromField();
+                                        activePlayer.Figures.Add(substitute);
+                                        substitute.TryPutInField(chessboard, indexes);
+                                    }
                                 }                                   
                                 activePlayer.UpdateLists();
                                 if (chessboard[indexes.Row, indexes.Column].WhoIsInField().TakingsList.Count != 0)
@@ -659,10 +691,6 @@ namespace Checkers_BY
                     figure = null;
                 }
             }
-            else
-            {
-                MessageBox.Show("error figure = null in field");
-            }
             return removed;
         }
     }
@@ -754,7 +782,7 @@ namespace Checkers_BY
             }
             return figureIsPut;
         }
-        public bool TryRemoveFromField() //
+        public bool TryRemoveFromField()
         {
             bool figureIsRemoved = false;
             var field = WhereIsFigure();
@@ -765,10 +793,6 @@ namespace Checkers_BY
                     chessboard = null;
                     staticIndexes.Row = staticIndexes.Column = Constants.UndefinedIndex;
                     figureIsRemoved = true;
-                }
-                else
-                {
-                    MessageBox.Show("error TryRemoveFromField");
                 }
             }
             return figureIsRemoved;
@@ -1071,6 +1095,222 @@ namespace Checkers_BY
                 }
             }
             return whereItIsPossibleToBeat;
+        }
+    }
+
+    public class Pawn : ChessFigure
+    {
+        public Pawn(byte newFigureColor)
+        {
+            FigureColor = newFigureColor;
+            switch (FigureColor)
+            {
+                case Constants.WhiteColor: FigureImage = Properties.Resources.pawn_white; break;
+                case Constants.BlackColor: FigureImage = Properties.Resources.pawn_black; break;
+            }
+        }
+
+        public override List<IndexesOnBoard> ToMakeListOfAvailableCourses()
+        {
+            var whereItIsPossibleToGo = new List<IndexesOnBoard>();
+            var figureIndexes = this.GetIndexesForBoardArray();
+            IndexesOnBoard checkedIndexes;
+            checkedIndexes.Row = figureIndexes.Row + 1;
+            checkedIndexes.Column = figureIndexes.Column;
+            var otherFigure = this.Board[checkedIndexes.Row, checkedIndexes.Column].WhoIsInField();
+            if (otherFigure == null)
+            {
+                whereItIsPossibleToGo.Add(checkedIndexes);
+            }
+            checkedIndexes.Column = figureIndexes.Column - 1;
+            if (checkedIndexes.Column >= 0)
+            {
+                otherFigure = this.Board[checkedIndexes.Row, checkedIndexes.Column].WhoIsInField();
+                if (otherFigure != null && otherFigure.FigureColor != this.FigureColor)
+                {
+                    whereItIsPossibleToGo.Add(checkedIndexes);
+                }
+            }
+            checkedIndexes.Column = figureIndexes.Column + 1;
+            if (checkedIndexes.Column < Constants.ChessboardDimension)
+            {
+                otherFigure = this.Board[checkedIndexes.Row, checkedIndexes.Column].WhoIsInField();
+                if (otherFigure != null && otherFigure.FigureColor != this.FigureColor)
+                {
+                    whereItIsPossibleToGo.Add(checkedIndexes);
+                }
+            }
+            return whereItIsPossibleToGo;
+        }
+        public override List<Taking> ToMakeListOfPossibleCaptures()
+        {
+            return new List<Taking>();
+        }
+    }
+
+    public class Horse : ChessFigure
+    {
+        public Horse(byte newFigureColor)
+        {
+            FigureColor = newFigureColor;
+            switch (FigureColor)
+            {
+                case Constants.WhiteColor: FigureImage = Properties.Resources.horse_white; break;
+                case Constants.BlackColor: FigureImage = Properties.Resources.horse_black; break;
+            }
+        }
+
+        public override List<IndexesOnBoard> ToMakeListOfAvailableCourses()
+        {
+            var whereItIsPossibleToGo = new List<IndexesOnBoard>();
+            var figureIndexes = this.GetIndexesForBoardArray();
+            IndexesOnBoard checkedIndexes;
+            for (var horizontalDirection = -2; horizontalDirection <= 2; horizontalDirection++)
+            {
+                if (horizontalDirection != 0)
+                {
+                    var verticalStep = 3 - Math.Abs(horizontalDirection);
+                    for (var verticalDirection = -1; verticalDirection <= 1; verticalDirection+=2)
+                    {
+                        checkedIndexes.Row = figureIndexes.Row + verticalDirection * verticalStep;
+                        checkedIndexes.Column = figureIndexes.Column + horizontalDirection;
+                        if (checkedIndexes.Row >= 0 && checkedIndexes.Row < Constants.ChessboardDimension
+                            && checkedIndexes.Column >= 0 && checkedIndexes.Column < Constants.ChessboardDimension)
+                        {
+                            var otherFigure = this.Board[checkedIndexes.Row, checkedIndexes.Column].WhoIsInField();
+                            if (otherFigure == null || otherFigure.FigureColor != this.FigureColor)
+                            {
+                                whereItIsPossibleToGo.Add(checkedIndexes);
+                            }
+                        }
+                    }
+                }
+            }
+            return whereItIsPossibleToGo;
+        }
+        public override List<Taking> ToMakeListOfPossibleCaptures()
+        {
+            return new List<Taking>();
+        }
+    }
+
+    public class Bishop : ChessFigure
+    {
+        public Bishop(byte newFigureColor)
+        {
+            FigureColor = newFigureColor;
+            switch (FigureColor)
+            {
+                case Constants.WhiteColor: FigureImage = Properties.Resources.bishop_white; break;
+                case Constants.BlackColor: FigureImage = Properties.Resources.bishop_black; break;
+            }
+        }
+
+        public override List<IndexesOnBoard> ToMakeListOfAvailableCourses()
+        {
+            var whereItIsPossibleToGo = new List<IndexesOnBoard>();
+            var figureIndexes = this.GetIndexesForBoardArray();
+            IndexesOnBoard checkedIndexes;
+            for (var verticalDirection = -1; verticalDirection <= 1; verticalDirection += 2)
+            {
+                for (var horizontalDirection = -1; horizontalDirection <= 1; horizontalDirection += 2)
+                {
+                    bool directionIsWorkOut = false;
+                    var k = 1;
+                    while (directionIsWorkOut == false)
+                    {
+                        checkedIndexes.Row = figureIndexes.Row + k * verticalDirection;
+                        checkedIndexes.Column = figureIndexes.Column + k * horizontalDirection;
+                        if (checkedIndexes.Column < 0 || checkedIndexes.Column >= Constants.ChessboardDimension
+                            || checkedIndexes.Row < 0 || checkedIndexes.Row >= Constants.ChessboardDimension)
+                        {
+                            directionIsWorkOut = true;
+                        }
+                        else
+                        {
+                            var otherFigure = this.Board[checkedIndexes.Row, checkedIndexes.Column].WhoIsInField();
+                            if (otherFigure == null)
+                            {
+                                whereItIsPossibleToGo.Add(checkedIndexes);
+                                k++;
+                            }
+                            else
+                            {
+                                if (otherFigure.FigureColor != this.FigureColor)
+                                {
+                                    whereItIsPossibleToGo.Add(checkedIndexes);
+                                }
+                                directionIsWorkOut = true;
+                            }
+                        }
+                    }
+                }
+            }
+            return whereItIsPossibleToGo;
+        }
+        public override List<Taking> ToMakeListOfPossibleCaptures()
+        {
+            return new List<Taking>();
+        }
+    }
+
+    public class Castle : ChessFigure
+    {
+        public Castle(byte newFigureColor)
+        {
+            FigureColor = newFigureColor;
+            switch (FigureColor)
+            {
+                case Constants.WhiteColor: FigureImage = Properties.Resources.castle_white; break;
+                case Constants.BlackColor: FigureImage = Properties.Resources.castle_black; break;
+            }
+        }
+
+        public override List<IndexesOnBoard> ToMakeListOfAvailableCourses()
+        {
+            var whereItIsPossibleToGo = new List<IndexesOnBoard>();
+            var figureIndexes = this.GetIndexesForBoardArray();
+            IndexesOnBoard checkedIndexes;
+            for (var verticalDirection = -1; verticalDirection <= 1; verticalDirection ++)
+            {
+                for (var horizontalDirection = verticalDirection == 0 ? -1: 0; horizontalDirection <= 1; horizontalDirection += 2)
+                {
+                    bool directionIsWorkOut = false;
+                    var k = 1;
+                    while (directionIsWorkOut == false)
+                    {
+                        checkedIndexes.Row = figureIndexes.Row + k * verticalDirection;
+                        checkedIndexes.Column = figureIndexes.Column + k * horizontalDirection;
+                        if (checkedIndexes.Column < 0 || checkedIndexes.Column >= Constants.ChessboardDimension
+                            || checkedIndexes.Row < 0 || checkedIndexes.Row >= Constants.ChessboardDimension)
+                        {
+                            directionIsWorkOut = true;
+                        }
+                        else
+                        {
+                            var otherFigure = this.Board[checkedIndexes.Row, checkedIndexes.Column].WhoIsInField();
+                            if (otherFigure == null)
+                            {
+                                whereItIsPossibleToGo.Add(checkedIndexes);
+                                k++;
+                            }
+                            else
+                            {
+                                if (otherFigure.FigureColor != this.FigureColor)
+                                {
+                                    whereItIsPossibleToGo.Add(checkedIndexes);
+                                }
+                                directionIsWorkOut = true;
+                            }
+                        }
+                    }
+                }
+            }
+            return whereItIsPossibleToGo;
+        }
+        public override List<Taking> ToMakeListOfPossibleCaptures()
+        {
+            return new List<Taking>();
         }
     }
 
